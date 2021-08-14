@@ -50,7 +50,7 @@ namespace UserBackup
                 }
                 catch (Exception ex)
                 {
-                    _logger.Submit($"ERROR Worker #{t}:\n{ex}");
+                    _logger.Submit($"ERROR Worker #{t}: {ex}");
                     Interlocked.Increment(ref _counters.ErrorCount);
                 }
             }

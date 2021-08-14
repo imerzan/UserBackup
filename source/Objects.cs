@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace UserBackup
@@ -21,41 +22,23 @@ namespace UserBackup
             _userDirs = new Dictionary<int, string>();
         }
 
-        public void Parse(string drive)
+        public void Parse(string volume)
         {
             try
             {
-                var rootSubDirs = Directory.GetDirectories(drive);
-                foreach (var subdir in rootSubDirs)
+                var volumeSubdirs = Directory.GetDirectories(volume);
+                string usersFolder = volumeSubdirs.First(x => Path.GetFileName(x).Equals("Users", StringComparison.OrdinalIgnoreCase)); // Will throw if not found
+                var allUsers = Directory.GetDirectories(usersFolder);
+                foreach (var user in allUsers)
                 {
                     try
                     {
-                        if (Path.GetFileName(subdir).Equals("users", StringComparison.OrdinalIgnoreCase)) // Check for 'Users' Folder
-                        {
-                            var userDirs = Directory.GetDirectories(subdir);
-                            foreach (var user in userDirs)
-                            {
-                                try
-                                {
-                                    var subFolders = Directory.GetDirectories(user);
-                                    foreach (var folder in subFolders)
-                                    {
-                                        if (Path.GetFileName(folder).Equals("desktop", StringComparison.OrdinalIgnoreCase)) // Check for 'Desktop' Folder
-                                        {
-                                            _userDirs.Add(_userDirs.Count, user);
-                                            break; // UserProfile validated, break loop
-                                        }
-                                    }
-                                }
-                                catch { }
-                            }
-                            break; // Users folder located, break loop
-                        }
-                    }
-                    catch { }
+                        var userLibraries = Directory.GetDirectories(user);
+                        userLibraries.First(x => Path.GetFileName(x).Equals("Desktop", StringComparison.OrdinalIgnoreCase)); // Will throw if not found
+                        _userDirs.Add(_userDirs.Count, user);
+                    } catch { }
                 }
-            }
-            catch { }
+            } catch { }
         }
 
         public override string ToString()

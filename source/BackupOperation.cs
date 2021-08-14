@@ -126,14 +126,13 @@ namespace UserBackup
             Console.WriteLine(userDirs.ToString());
             Console.Write("Enter User(s) by id# to backup>> ");
             string users = Console.ReadLine().Trim();
-            if (users == String.Empty) throw new Exception("User(s) cannot be blank!");
+            if (users == String.Empty) throw new Exception("User id(s) cannot be blank!");
             _users = users.Split(',');
             for (int i = 0; i < _users.Length; i++)
             {
-                if (!int.TryParse(_users[i].Trim(), out int id)) throw new Exception("Invalid user id selected! Be sure to use the user id number(s) listed above.");
+                if (!int.TryParse(_users[i].Trim(), out int id)) throw new Exception("Invalid user id number(s) entered!");
                 _users[i] = userDirs[id];
                 if (!Directory.Exists(_users[i])) throw new IOException($"User Path {_users[i]} does not exist!");
-                _users[i] = Path.GetFullPath(_users[i]);
             }
         }
 
@@ -154,7 +153,7 @@ namespace UserBackup
         private void GetName()
         {
             Console.Write($"\nEnter Backup Name (default:{Environment.MachineName})>> ");
-            string backupName = Console.ReadLine().Trim().TrimEnd(Path.DirectorySeparatorChar);
+            string backupName = Console.ReadLine().Trim().Replace(Path.DirectorySeparatorChar.ToString(), String.Empty);
             if (backupName == String.Empty) backupName = Environment.MachineName;
             _dest = Path.Combine(_dest, backupName);
             if (Directory.Exists(_dest))
@@ -268,7 +267,7 @@ namespace UserBackup
                     }
                 }
                 ProcessDirectory(new DirectoryInfo(user), _dest, true); // Start recursive call
-            }
+            } // User Backup Completed (ForEach)
             _logger.Submit("** Backup scan completed! Waiting for queue to be completed by Worker Threads...");
             _scanCompleted = true; // Set 'Scan Completed' flag
             while (!_queue.IsEmpty) Thread.Sleep(50); // Slow down CPU
@@ -276,9 +275,9 @@ namespace UserBackup
             foreach (var wrk in _workers) wrk.Stop();
             while (true) // Wait for all worker threads to complete
             {
-                bool threadRunning = false;
-                foreach (var wrk in _workers) if (wrk.IsAlive) threadRunning = true;
-                if (!threadRunning) break;
+                bool workerRunning = false;
+                foreach (var wrk in _workers) if (wrk.IsAlive) workerRunning = true;
+                if (!workerRunning) break;
                 Thread.Sleep(50); // Slow down CPU
             }
             _timer.Stop(); // Stop timer for progress updates
@@ -288,12 +287,12 @@ namespace UserBackup
 
         private void ProcessDirectory(DirectoryInfo directory, string backupDest, bool isRoot = false)
         {
-            backupDest = Path.Combine(backupDest, directory.Name);
             if (directory.FullName.Contains(_dest, StringComparison.OrdinalIgnoreCase)) // Loop Protection
             {
                 _logger.Submit($"WARNING - Backup loop detected! Skipping folder {directory.FullName}");
                 return;
             }
+            backupDest = Path.Combine(backupDest, directory.Name);
             var createDest = Directory.CreateDirectory(backupDest); // Make sure destination is created before Enqueuing
             if (!createDest.Exists) throw new IOException($"Unable to create destination directory {backupDest}");
             try
