@@ -9,11 +9,11 @@ namespace UserBackup
     public class UserDirectories
     {
         private readonly Dictionary<int, string> _userDirs;
-        public string this[int index]
+        public string this[int key]
         {
             get
             {
-                return _userDirs[index];
+                return _userDirs[key];
             }
         }
 

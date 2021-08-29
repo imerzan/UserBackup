@@ -22,7 +22,7 @@ namespace UserBackup
         private readonly EnumerationOptions _enumOptions = new EnumerationOptions()
         {
             AttributesToSkip = FileAttributes.Hidden | FileAttributes.System,
-            IgnoreInaccessible = false,
+            IgnoreInaccessible = true,
             ReturnSpecialDirectories = false
         };
         private readonly List<string> _ExcludedDirectories = new List<string>() // Excluded Directories in root %UserProfile% , use lowercase
@@ -85,6 +85,8 @@ namespace UserBackup
                 _timer?.Stop();
                 _logger?.Submit($"***FATAL ERROR*** on backup {_dest}\n{ex}");
                 _logger?.Close();
+                _queue?.Clear();
+                foreach (var wrk in _workers) wrk?.Stop();
                 Console.WriteLine("Press any key to exit.");
                 Console.ReadKey();
                 return -1;
@@ -323,7 +325,7 @@ namespace UserBackup
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR iterating files in directory {directory.FullName}\n{ex}");
+                _logger.Submit($"ERROR enumerating files in directory {directory.FullName}\n{ex}");
                 Interlocked.Increment(ref _counters.ErrorCount);
             }
 
@@ -366,7 +368,7 @@ namespace UserBackup
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR iterating subdirs in directory {directory.FullName}\n{ex}");
+                _logger.Submit($"ERROR enumerating subdirs in directory {directory.FullName}\n{ex}");
                 Interlocked.Increment(ref _counters.ErrorCount);
             }
         }
