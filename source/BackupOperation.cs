@@ -117,7 +117,7 @@ namespace UserBackup
                     if (WindowsInterop.IsDriveLocked(drive))
                     {
                         Console.Write($"\nDrive {drive} is locked by Bitlocker, would you like to unlock (y/n)? ");
-                        if (Console.ReadKey().KeyChar == 'y')
+                        if (Console.ReadKey().Key is ConsoleKey.Y)
                         {
                             WindowsInterop.UnlockDrive(drive);
                         }
