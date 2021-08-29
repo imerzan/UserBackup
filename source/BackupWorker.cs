@@ -32,7 +32,7 @@ namespace UserBackup
         }
         private void Worker(int t) // Worker Thread, works on Queue
         {
-            _logger.Submit($"Worker Thread {t} is starting.");
+            Console.WriteLine($"Worker Thread {t} is starting.");
             while (!_signalled)
             {
                 try
@@ -54,7 +54,7 @@ namespace UserBackup
                     Interlocked.Increment(ref _counters.ErrorCount);
                 }
             }
-            _logger.Submit($"Worker Thread {t} is stopping.");
+            Console.WriteLine($"Worker Thread {t} is stopping.");
         }
 
         public void Stop()

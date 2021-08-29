@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Timers;
@@ -25,16 +26,16 @@ namespace UserBackup
             IgnoreInaccessible = true,
             ReturnSpecialDirectories = false
         };
-        private readonly List<string> _ExcludedDirectories = new List<string>() // Excluded Directories in root %UserProfile% , use lowercase
+        private readonly List<string> _ExcludedDirectories = new List<string>() // Excluded Directories in root %UserProfile%
         {
-            "library",
-            "applications",
-            "appdata",
-            "dropbox",
-            "box",
-            "box sync",
-            "onedrive",
-            "google drive"
+            "Library",
+            "Applications",
+            "AppData",
+            "Dropbox",
+            "Box",
+            "Box Sync",
+            "OneDrive",
+            "Google Drive"
         };
 
         public BackupOperation(OSPlatform platform, string dest, int threads)
@@ -46,7 +47,7 @@ namespace UserBackup
             _queue = new ConcurrentQueue<BackupFile>();
             _logger = new BackupLogger();
             _workers = new BackupWorker[threads];
-            _timer = new System.Timers.Timer(25000);
+            _timer = new System.Timers.Timer(5000);
             _timer.Elapsed += this.ProgressUpdate;
             _timer.AutoReset = true;
         }
@@ -273,7 +274,7 @@ namespace UserBackup
             _logger.Submit("** Backup scan completed! Waiting for queue to be completed by Worker Threads...");
             _scanCompleted = true; // Set 'Scan Completed' flag
             while (!_queue.IsEmpty) Thread.Sleep(50); // Slow down CPU
-            _logger.Submit("** Queue has been completed! Signalling worker threads to wrap up...");
+            _logger.Submit("** Queue has been completed! Signalling worker threads to wrap up once finished...");
             foreach (var wrk in _workers) wrk.Stop();
             while (true) // Wait for all worker threads to complete
             {
@@ -341,19 +342,17 @@ namespace UserBackup
                         }
                         if (subdirectory.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase)) // Ignore .App Folders (applications)
                         {
-                            _logger.Submit($"Skipping .App {subdirectory.FullName}");
                             continue;
                         }
                         if (isRoot) // %UserProfile% Root
                         {
-                            if (_ExcludedDirectories.Contains(subdirectory.Name.ToLower()))
+                            var excludedLookup = _ExcludedDirectories.FirstOrDefault(x => x.Equals(subdirectory.Name, StringComparison.OrdinalIgnoreCase)); // Returns null if not found
+                            if (excludedLookup is not null) // Directory is excluded
                             {
-                                _logger.Submit($"Skipping Excluded Directory {subdirectory.FullName}");
                                 continue;
                             }
                             if (subdirectory.Name.StartsWith('.')) // Ignore .Directories in %UserProfile%
                             {
-                                _logger.Submit($"Skipping .Directory {subdirectory.FullName}");
                                 continue;
                             }
                         }
