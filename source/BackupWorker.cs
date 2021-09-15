@@ -33,26 +33,35 @@ namespace UserBackup
         private void Worker(int t) // Worker Thread, works on Queue
         {
             Console.WriteLine($"Worker Thread {t} is starting.");
+            Span<byte> buffer = stackalloc byte[256000]; // 256kb Stack Allocated Copy buffer
             while (!_signalled)
             {
-                try
+                if (_queue.TryDequeue(out var file))
                 {
-                    if (_queue.TryDequeue(out var file))
+                    try
                     {
-                        File.Copy(file.Source, file.Dest);
+                        using (var fsIn = new FileStream(file.Source, FileMode.Open, FileAccess.Read))
+                        using (var fsOut = new FileStream(file.Dest, FileMode.Create, FileAccess.Write))
+                        {
+                            int bytesRead;
+                            while ((bytesRead = fsIn.Read(buffer)) > 0) // Read Source File
+                            {
+                                fsOut.Write(buffer.Slice(0, bytesRead)); // Copy to destination
+                            }
+                        }
                         Interlocked.Increment(ref _counters.CopiedFiles);
                         lock (_counters.CopiedSize_lock) // Lock access to be thread safe
                         {
                             _counters.CopiedSize += (double)file.Size / (double)1000000;
                         }
                     }
-                    else Thread.Sleep(1); // Slow down CPU
+                    catch (Exception ex)
+                    {
+                        _logger.Submit($"ERROR copying {file.Source}: {ex}");
+                        Interlocked.Increment(ref _counters.ErrorCount);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.Submit($"ERROR Worker #{t}: {ex}");
-                    Interlocked.Increment(ref _counters.ErrorCount);
-                }
+                else Thread.Sleep(1); // Slow down CPU
             }
             Console.WriteLine($"Worker Thread {t} is stopping.");
         }
