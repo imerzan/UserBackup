@@ -18,6 +18,7 @@ namespace UserBackup
         }
         public static bool IsDriveLocked(string driveParam) // Requires Admin
         {
+            driveParam = driveParam.TrimEnd('\\'); // Remove trailing slash
             using ManagementObjectSearcher Encryption = new ManagementObjectSearcher(@"root\cimv2\Security\MicrosoftVolumeEncryption", "SELECT * FROM Win32_EncryptableVolume");
             foreach (ManagementObject QueryObj in Encryption.Get())
             {
@@ -32,6 +33,7 @@ namespace UserBackup
 
         public static void UnlockDrive(string driveParam) // Requires Admin
         {
+            driveParam = driveParam.TrimEnd('\\'); // Remove trailing slash
             using ManagementObjectSearcher Encryption = new ManagementObjectSearcher(@"root\cimv2\Security\MicrosoftVolumeEncryption", "SELECT * FROM Win32_EncryptableVolume");
             foreach (ManagementObject QueryObj in Encryption.Get())
             {

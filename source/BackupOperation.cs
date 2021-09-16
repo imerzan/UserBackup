@@ -75,9 +75,9 @@ namespace UserBackup
                 {
                     if (!WindowsInterop.IsAdministrator()) throw new UnauthorizedAccessException("Insufficient privileges! Restart program as Administrator (Run-As-Admin).");
                 }
-                GetSource();
-                GetDest();
-                GetName();
+                PromptSource();
+                PromptDest();
+                PromptName();
                 BackupProfile();
                 return 0;
             }
@@ -94,7 +94,7 @@ namespace UserBackup
             }
         }
 
-        private void GetSource()
+        private void PromptSource()
         {
             Console.WriteLine("Scanning available drives/volumes...");
             string[] allRoots = null;
@@ -104,7 +104,7 @@ namespace UserBackup
                 List<string> driveList = new List<string>();
                 foreach (var winDrive in winDrives)
                 {
-                    driveList.Add(winDrive.Name);
+                    driveList.Add(winDrive.Name); // Take first 2 chars ( example C: )
                 }
                 allRoots = driveList.ToArray();
             }
@@ -114,13 +114,12 @@ namespace UserBackup
             {
                 if (_platform == OSPlatform.Windows)
                 {
-                    string drive = volume.Substring(0, 2); // Take first 2 chars ( example C: )
-                    if (WindowsInterop.IsDriveLocked(drive))
+                    if (WindowsInterop.IsDriveLocked(volume))
                     {
-                        Console.Write($"\nDrive {drive} is locked by Bitlocker, would you like to unlock (y/n)? ");
+                        Console.Write($"\nDrive {volume} is locked by Bitlocker, would you like to unlock (y/n)? ");
                         if (Console.ReadKey().Key is ConsoleKey.Y)
                         {
-                            WindowsInterop.UnlockDrive(drive);
+                            WindowsInterop.UnlockDrive(volume);
                         }
                     }
                 }
@@ -139,7 +138,7 @@ namespace UserBackup
             }
         }
 
-        private void GetDest()
+        private void PromptDest()
         {
             if (_dest is null)
             {
@@ -153,7 +152,7 @@ namespace UserBackup
             if (!create.Exists) throw new IOException($"Unable to create destination folder {_dest}");
         }
 
-        private void GetName()
+        private void PromptName()
         {
             Console.Write($"\nEnter Backup Name (default:{Environment.MachineName})>> ");
             string backupName = Console.ReadLine().Trim().Replace(Path.DirectorySeparatorChar.ToString(), String.Empty);
@@ -180,22 +179,47 @@ namespace UserBackup
             {
                 var userName = Path.GetFileName(user);
                 _logger.Submit($"** Scanning User '{userName}'");
-                if (_platform == OSPlatform.Windows) // Windows Only
+                if (_platform == OSPlatform.OSX) // Mac Only
                 {
-                    try // Microsoft Edge Bookmarks (Chromium Version)
+                    try // Safari bookmarks
                     {
-                        if (Directory.Exists(Path.Combine(user, @"AppData\Local\Microsoft\Edge\User Data\Default")))
+                        var safari = new FileInfo(Path.Combine(user, "Library/Safari/Bookmarks.plist"));
+                        if (safari.Exists)
                         {
-                            if (File.Exists(Path.Combine(user, @"AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks")))
+                            var dest = Directory.CreateDirectory(Path.Combine(_dest, userName, "SafariBookmarks"));
+                            _queue.Enqueue(new BackupFile()
                             {
-                                Directory.CreateDirectory(Path.Combine(_dest, userName, "EdgeBookmarks"));
-                                File.Copy(Path.Combine(user, @"AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks"), Path.Combine(_dest, userName, "EdgeBookmarks", "Bookmarks"));
-                            }
+                                Source = safari.FullName,
+                                Dest = Path.Combine(dest.FullName, safari.Name),
+                                Size = safari.Length
+                            });
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR copying Microsoft Edge Bookmarks: {ex}");
+                        _logger.Submit($"ERROR processing Safari Bookmarks: {ex}");
+                        Interlocked.Increment(ref _counters.ErrorCount);
+                    }
+                }
+                if (_platform == OSPlatform.Windows) // Windows Only
+                {
+                    try // Microsoft Edge Bookmarks (Chromium Version)
+                    {
+                        var edge = new FileInfo(Path.Combine(user, @"AppData\Local\Microsoft\Edge\User Data\Default\Bookmarks"));
+                        if (edge.Exists)
+                        {
+                            var dest = Directory.CreateDirectory(Path.Combine(_dest, userName, "EdgeBookmarks"));
+                            _queue.Enqueue(new BackupFile()
+                            {
+                                Source = edge.FullName,
+                                Dest = Path.Combine(dest.FullName, edge.Name),
+                                Size = edge.Length
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Submit($"ERROR processing Microsoft Edge Bookmarks: {ex}");
                         Interlocked.Increment(ref _counters.ErrorCount);
                     }
                 }
@@ -203,73 +227,65 @@ namespace UserBackup
                 {
                     if (_platform == OSPlatform.OSX)
                     {
-                        if (Directory.Exists(Path.Combine(user, "Library/Application Support/Google/Chrome/Default")))
+                        var chrome = new FileInfo(Path.Combine(user, "Library/Application Support/Google/Chrome/Default/Bookmarks"));
+                        if (chrome.Exists)
                         {
-                            if (File.Exists(Path.Combine(user, "Library/Application Support/Google/Chrome/Default/Bookmarks")))
+                            var dest = Directory.CreateDirectory(Path.Combine(_dest, userName, "ChromeBookmarks"));
+                            _queue.Enqueue(new BackupFile()
                             {
-                                Directory.CreateDirectory(Path.Combine(_dest, userName, "ChromeBookmarks"));
-                                File.Copy(Path.Combine(user, "Library/Application Support/Google/Chrome/Default/Bookmarks"), Path.Combine(_dest, userName, "ChromeBookmarks", "Bookmarks"));
-                            }
+                                Source = chrome.FullName,
+                                Dest = Path.Combine(dest.FullName, chrome.Name),
+                                Size = chrome.Length
+                            });
                         }
                     }
                     else if (_platform == OSPlatform.Windows)
                     {
-                        if (Directory.Exists(Path.Combine(user, @"AppData\Local\Google\Chrome\User Data\Default")))
+                        var chrome = new FileInfo(Path.Combine(user, @"AppData\Local\Google\Chrome\User Data\Default\Bookmarks"));
+                        if (chrome.Exists)
                         {
-                            if (File.Exists(Path.Combine(user, @"AppData\Local\Google\Chrome\User Data\Default\Bookmarks")))
+                            var dest = Directory.CreateDirectory(Path.Combine(_dest, userName, "ChromeBookmarks"));
+                            _queue.Enqueue(new BackupFile()
                             {
-                                Directory.CreateDirectory(Path.Combine(_dest, userName, "ChromeBookmarks"));
-                                File.Copy(Path.Combine(user, @"AppData\Local\Google\Chrome\User Data\Default\Bookmarks"), Path.Combine(_dest, userName, "ChromeBookmarks", "Bookmarks"));
-                            }
+                                Source = chrome.FullName,
+                                Dest = Path.Combine(dest.FullName, chrome.Name),
+                                Size = chrome.Length
+                            });
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Submit($"ERROR copying Chrome Bookmarks: {ex}");
+                    _logger.Submit($"ERROR processing Chrome Bookmarks: {ex}");
                     Interlocked.Increment(ref _counters.ErrorCount);
                 }
                 try // Firefox Bookmarks
                 {
                     if (_platform == OSPlatform.OSX)
                     {
-                        if (Directory.Exists(Path.Combine(user, "Library/Application Support/Firefox/Profiles")))
+                        var firefox = new DirectoryInfo(Path.Combine(user, "Library/Application Support/Firefox/Profiles"));
+                        if (firefox.Exists)
                         {
-                            Directory.CreateDirectory(Path.Combine(_dest, userName, "FirefoxBookmarks"));
-                            ProcessDirectory(new DirectoryInfo(Path.Combine(user, "Library/Application Support/Firefox/Profiles")), Path.Combine(_dest, userName, "FirefoxBookmarks"));
+                            var dest = Directory.CreateDirectory(Path.Combine(_dest, userName, "FirefoxBookmarks"));
+                            ProcessDirectory(firefox, dest);
                         }
                     }
                     else if (_platform == OSPlatform.Windows)
                     {
-                        if (Directory.Exists(Path.Combine(user, @"AppData\Roaming\Mozilla\Firefox\Profiles")))
+                        var firefox = new DirectoryInfo(Path.Combine(user, @"AppData\Roaming\Mozilla\Firefox\Profiles"));
+                        if (firefox.Exists)
                         {
-                            Directory.CreateDirectory(Path.Combine(_dest, userName, "FirefoxBookmarks"));
-                            ProcessDirectory(new DirectoryInfo(Path.Combine(user, @"AppData\Roaming\Mozilla\Firefox\Profiles")), Path.Combine(_dest, userName, "FirefoxBookmarks"));
+                            var dest = Directory.CreateDirectory(Path.Combine(_dest, userName, "FirefoxBookmarks"));
+                            ProcessDirectory(firefox, dest);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Submit($"ERROR copying Firefox Bookmarks: {ex}");
+                    _logger.Submit($"ERROR processing Firefox Bookmarks: {ex}");
                     Interlocked.Increment(ref _counters.ErrorCount);
                 }
-                if (_platform == OSPlatform.OSX) // Mac Only
-                {
-                    try // Safari bookmarks
-                    {
-                        if (File.Exists(Path.Combine(user, "Library/Safari/Bookmarks.plist")))
-                        {
-                            Directory.CreateDirectory(Path.Combine(_dest, userName, "SafariBookmarks"));
-                            File.Copy(Path.Combine(user, "Library/Safari/Bookmarks.plist"), Path.Combine(_dest, userName, "SafariBookmarks", "Bookmarks.plist"));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Submit($"ERROR copying Safari Bookmarks, full disk access privileges required (see security&privacy): {ex}");
-                        Interlocked.Increment(ref _counters.ErrorCount);
-                    }
-                }
-                ProcessDirectory(new DirectoryInfo(user), _dest, true); // Start recursive call
+                ProcessDirectory(new DirectoryInfo(user), new DirectoryInfo(_dest), true); // Start recursive call
             } // User Backup Completed (ForEach)
             _logger.Submit("** Backup scan completed! Waiting for queue to be completed by Worker Threads...");
             _scanCompleted = true; // Set 'Scan Completed' flag
@@ -288,34 +304,33 @@ namespace UserBackup
             _logger.Close(); // Close Logfile
         }
 
-        private void ProcessDirectory(DirectoryInfo directory, string backupDest, bool isRoot = false)
+        private void ProcessDirectory(DirectoryInfo directory, DirectoryInfo backupDest, bool isRoot = false)
         {
             if (directory.FullName.Contains(_dest, StringComparison.OrdinalIgnoreCase)) // Loop Protection
             {
                 _logger.Submit($"WARNING - Backup loop detected! Skipping folder {directory.FullName}");
                 return;
             }
-            backupDest = Path.Combine(backupDest, directory.Name);
-            var createDest = Directory.CreateDirectory(backupDest); // Make sure destination is created before Enqueuing
-            if (!createDest.Exists) throw new IOException($"Unable to create destination directory {backupDest}");
+            backupDest = backupDest.CreateSubdirectory(directory.Name); // Make sure destination is created before Enqueuing
+            if (!backupDest.Exists) throw new IOException($"Unable to create destination directory {backupDest.FullName}");
             try
             {
                 foreach (var file in directory.EnumerateFiles("*", _enumOptions)) // Process Files
                 {
                     try
                     {
-                        if (_platform == OSPlatform.OSX && file.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (Fixed in .NET6)
+                        if (_platform == OSPlatform.OSX && file.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (ToDo in .NET6)
                         {
                             continue;
                         }
                         _queue.Enqueue(new BackupFile()
                         {
                             Source = file.FullName,
-                            Dest = Path.Combine(backupDest, file.Name),
+                            Dest = Path.Combine(backupDest.FullName, file.Name),
                             Size = file.Length
                         });
                         _counters.TotalFiles++;
-                        _counters.TotalSize += (double)file.Length / (double)1000000;
+                        _counters.TotalSize += (double)file.Length / (double)1000000; // Megabytes
                     }
                     catch (Exception ex)
                     {
@@ -336,7 +351,7 @@ namespace UserBackup
                 {
                     try
                     {
-                        if (_platform == OSPlatform.OSX && subdirectory.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (Fixed in .NET6)
+                        if (_platform == OSPlatform.OSX && subdirectory.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (ToDo in .NET6)
                         {
                             continue;
                         }
@@ -346,8 +361,7 @@ namespace UserBackup
                         }
                         if (isRoot) // %UserProfile% Root
                         {
-                            var excludedLookup = _ExcludedDirectories.FirstOrDefault(x => x.Equals(subdirectory.Name, StringComparison.OrdinalIgnoreCase)); // Returns null if not found
-                            if (excludedLookup is not null) // Directory is excluded
+                            if (_ExcludedDirectories.FirstOrDefault(x => x.Equals(subdirectory.Name, StringComparison.OrdinalIgnoreCase)) is not null) // Directory is excluded
                             {
                                 continue;
                             }
@@ -360,7 +374,7 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing folder {subdirectory.FullName}\n{ex}");
+                        _logger.Submit($"ERROR processing subdir {subdirectory.FullName}\n{ex}");
                         Interlocked.Increment(ref _counters.ErrorCount);
                     }
                 } // End ForEach subdir
