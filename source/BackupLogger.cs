@@ -40,7 +40,6 @@ namespace UserBackup
             {
                 if (_LogFile is not null)
                 {
-                    _LogFile.Close();
                     _LogFile.Dispose();
                     _LogFile = null; // Remove object reference
                     Console.WriteLine("Closed Logfile...");
