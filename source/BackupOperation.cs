@@ -20,7 +20,7 @@ namespace UserBackup
         private readonly BackupWorker[] _workers;
         private readonly System.Timers.Timer _timer;
         private bool _scanCompleted;
-        private static readonly EnumerationOptions _enumOptions = new EnumerationOptions()
+        private static readonly EnumerationOptions _EnumOptions = new EnumerationOptions()
         {
             AttributesToSkip = FileAttributes.Hidden | FileAttributes.System,
             IgnoreInaccessible = true,
@@ -172,7 +172,7 @@ namespace UserBackup
             var sw = new BackupStopwatch(_logger, _counters, _dest.FullName); // Stopwatch to track backup duration
             for (int i = 0; i < _workers.Length; i++) // Start Workers
             {
-                _workers[i] = new BackupWorker(_counters, _queue, _logger, i);
+                _workers[i] = new BackupWorker(_counters, _queue, _logger, i+1);
             }
             _timer.Start(); // Start timer for progress updates
             foreach (var user in _users) // Iterate *all* selected users
@@ -192,6 +192,8 @@ namespace UserBackup
                                 Dest = Path.Combine(dest.FullName, safari.Name),
                                 Size = safari.Length
                             });
+                            _counters.TotalFiles++;
+                            _counters.TotalSize += (double)safari.Length / (double)1000000; // Megabytes
                         }
                     }
                     catch (Exception ex)
@@ -214,6 +216,8 @@ namespace UserBackup
                                 Dest = Path.Combine(dest.FullName, edge.Name),
                                 Size = edge.Length
                             });
+                            _counters.TotalFiles++;
+                            _counters.TotalSize += (double)edge.Length / (double)1000000; // Megabytes
                         }
                     }
                     catch (Exception ex)
@@ -236,6 +240,8 @@ namespace UserBackup
                                 Dest = Path.Combine(dest.FullName, chrome.Name),
                                 Size = chrome.Length
                             });
+                            _counters.TotalFiles++;
+                            _counters.TotalSize += (double)chrome.Length / (double)1000000; // Megabytes
                         }
                     }
                     else if (_platform == OSPlatform.Windows)
@@ -250,6 +256,8 @@ namespace UserBackup
                                 Dest = Path.Combine(dest.FullName, chrome.Name),
                                 Size = chrome.Length
                             });
+                            _counters.TotalFiles++;
+                            _counters.TotalSize += (double)chrome.Length / (double)1000000; // Megabytes
                         }
                     }
                 }
@@ -314,7 +322,7 @@ namespace UserBackup
             if (!backupDest.Exists) throw new IOException($"Unable to create destination directory {backupDest.FullName}");
             try
             {
-                foreach (var file in directory.EnumerateFiles("*", _enumOptions)) // Process Files
+                foreach (var file in directory.EnumerateFiles("*", _EnumOptions)) // Process Files
                 {
                     try
                     {
@@ -346,7 +354,7 @@ namespace UserBackup
 
             try // Get subdirs
             {
-                foreach (var subdirectory in directory.EnumerateDirectories("*", _enumOptions))
+                foreach (var subdirectory in directory.EnumerateDirectories("*", _EnumOptions))
                 {
                     try
                     {
