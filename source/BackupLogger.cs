@@ -26,12 +26,9 @@ namespace UserBackup
             string log = Path.Combine(dest, "log.txt");
             lock (_LogFileLock)
             {
-                if (_LogFile is null)
-                {
-                    _LogFile = File.AppendText(log);
-                    _LogFile.AutoFlush = true;
-                    Console.WriteLine($"Opened Logfile at {log}");
-                }
+                _LogFile = File.AppendText(log);
+                _LogFile.AutoFlush = true;
+                Console.WriteLine($"Opened Logfile at {log}");
             }
             _sw.Start();
             Submit($"** UserBackup Version {Program.AssemblyVersion}, Starting Backup...");
@@ -76,12 +73,8 @@ namespace UserBackup
         {
             lock (_LogFileLock)
             {
-                if (_LogFile is not null)
-                {
-                    _LogFile.Dispose();
-                    _LogFile = null; // Remove object reference
-                    Console.WriteLine("Closed Logfile...");
-                }
+                _LogFile?.Dispose();
+                _LogFile = null;
             }
         }
     }
