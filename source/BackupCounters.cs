@@ -6,6 +6,7 @@
         public int CopiedFiles = 0;
         public int ErrorCount = 0;
         public double TotalSize = 0;
+        public readonly object TotalSize_lock = new object(); // Use lock to set 'TotalSize'
         public double CopiedSize = 0;
         public readonly object CopiedSize_lock = new object(); // Use lock to set 'CopiedSize'
     }

@@ -4,12 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Timers;
 
 namespace UserBackup
 {
     public class BackupOperation
     {
+        private bool _scanCompleted;
         private DirectoryInfo _dest;
         private readonly List<DirectoryInfo> _users;
         private readonly OSPlatform _platform;
@@ -18,7 +20,6 @@ namespace UserBackup
         private readonly BackupLogger _logger;
         private readonly BackupWorker[] _workers;
         private readonly System.Timers.Timer _timer;
-        private bool _scanCompleted;
         private static readonly EnumerationOptions _EnumOptions = new EnumerationOptions()
         {
             AttributesToSkip = FileAttributes.Hidden | FileAttributes.System,
@@ -287,13 +288,13 @@ namespace UserBackup
             if (!backupDest.Exists) throw new IOException($"Unable to create destination directory {backupDest.FullName}");
             try
             {
-                foreach (var file in directory.EnumerateFiles("*", _EnumOptions)) // Process Files
+                Parallel.ForEach(directory.EnumerateFiles("*", _EnumOptions), file =>
                 {
                     try
                     {
                         if (_platform == OSPlatform.OSX && file.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (ToDo in .NET6)
                         {
-                            continue;
+                            return;
                         }
                         _queue.Enqueue(file.FullName, Path.Combine(backupDest.FullName, file.Name), file.Length);
                     }
@@ -301,7 +302,7 @@ namespace UserBackup
                     {
                         _logger.Submit($"ERROR processing file {file.FullName}\n{ex}", LogMessage.Error);
                     }
-                }
+                });
             }
             catch (Exception ex)
             {
@@ -310,27 +311,27 @@ namespace UserBackup
 
             try // Get subdirs
             {
-                foreach (var subdirectory in directory.EnumerateDirectories("*", _EnumOptions))
+                Parallel.ForEach(directory.EnumerateDirectories("*", _EnumOptions), subdirectory =>
                 {
                     try
                     {
                         if (_platform == OSPlatform.OSX && subdirectory.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (ToDo in .NET6)
                         {
-                            continue;
+                            return;
                         }
                         if (subdirectory.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase)) // Ignore .App Folders (applications)
                         {
-                            continue;
+                            return;
                         }
                         if (isRoot) // %UserProfile% Root
                         {
                             if (_ExcludedDirectories.FirstOrDefault(x => x.Equals(subdirectory.Name, StringComparison.OrdinalIgnoreCase)) is not null) // Directory is excluded
                             {
-                                continue;
+                                return;
                             }
                             if (subdirectory.Name.StartsWith('.')) // Ignore .Directories in %UserProfile%
                             {
-                                continue;
+                                return;
                             }
                         }
                         ProcessDirectory(subdirectory, backupDest); // Process subdir (recurse)
@@ -339,7 +340,7 @@ namespace UserBackup
                     {
                         _logger.Submit($"ERROR processing subdir {subdirectory.FullName}\n{ex}", LogMessage.Error);
                     }
-                } // End ForEach subdir
+                });
             }
             catch (Exception ex)
             {

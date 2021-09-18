@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Threading;
 
 namespace UserBackup
 {
@@ -19,17 +20,19 @@ namespace UserBackup
             _queue = new ConcurrentQueue<BackupFile>();
             _counters = counters;
         }
-        public void Enqueue(string source, string dest, long size)
+        public void Enqueue(string source, string dest, long size) // Thread safe
         {
-            _queue.Enqueue(new BackupFile() // Thread safe
+            _queue.Enqueue(new BackupFile()
             {
                 Source = source,
                 Dest = dest,
                 Size = size
             });
-            // Below not thread safe, this is OK since it is only called from the primary thread
-            _counters.TotalFiles++;
-            _counters.TotalSize += (double)size / (double)1000000; // Megabytes
+            Interlocked.Increment(ref _counters.TotalFiles);
+            lock (_counters.TotalSize_lock)
+            {
+                _counters.TotalSize += (double)size / (double)1000000; // Megabytes
+            }
         }
 
         public bool TryDequeue(out BackupFile file) // Thread safe
