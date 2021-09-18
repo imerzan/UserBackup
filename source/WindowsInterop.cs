@@ -4,11 +4,11 @@ using System.Security.Principal;
 
 namespace UserBackup
 {
+    /// <summary>
+    /// Windows Interop Code
+    /// </summary>
     internal static class WindowsInterop
     {
-        /// <summary>
-        /// Windows Interop Code
-        /// </summary>
 #pragma warning disable CA1416
         public static bool IsAdministrator()
         {

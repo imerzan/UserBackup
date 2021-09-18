@@ -50,7 +50,7 @@ namespace UserBackup
             {
                 sb.AppendLine($"{entry.Key}) {entry.Value}");
             }
-            sb.AppendLine("\n(NOTE: Separate multiple users by comma ',' ex: 0,1,2)");
+            sb.AppendLine("\n(NOTE: Separate multiple users by comma ',' example: 0,1,2)");
             return sb.ToString();
         }
     }

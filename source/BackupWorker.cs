@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 
@@ -8,7 +7,7 @@ namespace UserBackup
     public class BackupWorker
     {
         private readonly BackupCounters _counters;
-        private readonly ConcurrentQueue<BackupFile> _queue;
+        private readonly BackupQueue _queue;
         private readonly BackupLogger _logger;
         private readonly Thread _worker;
         private volatile bool _signalled;
@@ -21,7 +20,7 @@ namespace UserBackup
             }
         }
 
-        public BackupWorker(BackupCounters counters, ConcurrentQueue<BackupFile> queue, BackupLogger logger, int t)
+        public BackupWorker(BackupCounters counters, BackupQueue queue, BackupLogger logger, int t)
         {
             _signalled = false;
             _counters = counters;
@@ -57,8 +56,7 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR copying {file.Source}: {ex}");
-                        Interlocked.Increment(ref _counters.ErrorCount);
+                        _logger.Submit($"ERROR copying file {file.Source}: {ex}", LogMessage.Error);
                     }
                 }
                 else Thread.Sleep(1); // Slow down CPU

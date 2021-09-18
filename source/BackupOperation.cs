@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,7 +14,7 @@ namespace UserBackup
         private readonly List<DirectoryInfo> _users;
         private readonly OSPlatform _platform;
         private readonly BackupCounters _counters;
-        private readonly ConcurrentQueue<BackupFile> _queue;
+        private readonly BackupQueue _queue;
         private readonly BackupLogger _logger;
         private readonly BackupWorker[] _workers;
         private readonly System.Timers.Timer _timer;
@@ -45,8 +44,8 @@ namespace UserBackup
             _users = new List<DirectoryInfo>();
             _scanCompleted = false;
             _counters = new BackupCounters();
-            _queue = new ConcurrentQueue<BackupFile>();
-            _logger = new BackupLogger();
+            _queue = new BackupQueue(_counters);
+            _logger = new BackupLogger(_counters);
             _workers = new BackupWorker[threads];
             _timer = new System.Timers.Timer(5000);
             _timer.Elapsed += this.ProgressUpdate;
@@ -86,7 +85,7 @@ namespace UserBackup
             {
                 _timer?.Stop();
                 _logger?.Submit($"***FATAL ERROR*** on backup {_dest}\n{ex}");
-                _logger?.Close();
+                _logger?.Dispose();
                 _queue?.Clear();
                 foreach (var wrk in _workers) wrk?.Stop();
                 Console.WriteLine("Press any key to exit.");
@@ -105,7 +104,7 @@ namespace UserBackup
                 List<string> driveList = new List<string>();
                 foreach (var winDrive in winDrives)
                 {
-                    driveList.Add(winDrive.Name); // Take first 2 chars ( example C: )
+                    driveList.Add(winDrive.Name);
                 }
                 allRoots = driveList.ToArray();
             }
@@ -168,8 +167,7 @@ namespace UserBackup
 
         private void BackupProfile()
         {
-            _logger.Open(Path.Combine(_dest.FullName, "log.txt")); // Open Logfile
-            var sw = new BackupStopwatch(_logger, _counters, _dest.FullName); // Stopwatch to track backup duration
+            _logger.Open(_dest.FullName); // Open Logfile, begin stopwatch
             for (int i = 0; i < _workers.Length; i++) // Start Workers
             {
                 _workers[i] = new BackupWorker(_counters, _queue, _logger, i+1);
@@ -186,20 +184,12 @@ namespace UserBackup
                         if (safari.Exists)
                         {
                             var dest = Directory.CreateDirectory(Path.Combine(_dest.FullName, user.Name, "SafariBookmarks"));
-                            _queue.Enqueue(new BackupFile()
-                            {
-                                Source = safari.FullName,
-                                Dest = Path.Combine(dest.FullName, safari.Name),
-                                Size = safari.Length
-                            });
-                            _counters.TotalFiles++;
-                            _counters.TotalSize += (double)safari.Length / (double)1000000; // Megabytes
+                            _queue.Enqueue(safari.FullName, Path.Combine(dest.FullName, safari.Name), safari.Length);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing Safari Bookmarks: {ex}");
-                        Interlocked.Increment(ref _counters.ErrorCount);
+                        _logger.Submit($"ERROR processing Safari Bookmarks: {ex}", LogMessage.Error);
                     }
                 }
                 if (_platform == OSPlatform.Windows) // Windows Only
@@ -210,20 +200,12 @@ namespace UserBackup
                         if (edge.Exists)
                         {
                             var dest = Directory.CreateDirectory(Path.Combine(_dest.FullName, user.Name, "EdgeBookmarks"));
-                            _queue.Enqueue(new BackupFile()
-                            {
-                                Source = edge.FullName,
-                                Dest = Path.Combine(dest.FullName, edge.Name),
-                                Size = edge.Length
-                            });
-                            _counters.TotalFiles++;
-                            _counters.TotalSize += (double)edge.Length / (double)1000000; // Megabytes
+                            _queue.Enqueue(edge.FullName, Path.Combine(dest.FullName, edge.Name), edge.Length);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing Microsoft Edge Bookmarks: {ex}");
-                        Interlocked.Increment(ref _counters.ErrorCount);
+                        _logger.Submit($"ERROR processing Microsoft Edge Bookmarks: {ex}", LogMessage.Error);
                     }
                 }
                 try // Chrome Bookmarks
@@ -234,14 +216,7 @@ namespace UserBackup
                         if (chrome.Exists)
                         {
                             var dest = Directory.CreateDirectory(Path.Combine(_dest.FullName, user.Name, "ChromeBookmarks"));
-                            _queue.Enqueue(new BackupFile()
-                            {
-                                Source = chrome.FullName,
-                                Dest = Path.Combine(dest.FullName, chrome.Name),
-                                Size = chrome.Length
-                            });
-                            _counters.TotalFiles++;
-                            _counters.TotalSize += (double)chrome.Length / (double)1000000; // Megabytes
+                            _queue.Enqueue(chrome.FullName, Path.Combine(dest.FullName, chrome.Name), chrome.Length);
                         }
                     }
                     else if (_platform == OSPlatform.Windows)
@@ -250,21 +225,13 @@ namespace UserBackup
                         if (chrome.Exists)
                         {
                             var dest = Directory.CreateDirectory(Path.Combine(_dest.FullName, user.Name, "ChromeBookmarks"));
-                            _queue.Enqueue(new BackupFile()
-                            {
-                                Source = chrome.FullName,
-                                Dest = Path.Combine(dest.FullName, chrome.Name),
-                                Size = chrome.Length
-                            });
-                            _counters.TotalFiles++;
-                            _counters.TotalSize += (double)chrome.Length / (double)1000000; // Megabytes
+                            _queue.Enqueue(chrome.FullName, Path.Combine(dest.FullName, chrome.Name), chrome.Length);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Submit($"ERROR processing Chrome Bookmarks: {ex}");
-                    Interlocked.Increment(ref _counters.ErrorCount);
+                    _logger.Submit($"ERROR processing Chrome Bookmarks: {ex}", LogMessage.Error);
                 }
                 try // Firefox Bookmarks
                 {
@@ -289,8 +256,7 @@ namespace UserBackup
                 }
                 catch (Exception ex)
                 {
-                    _logger.Submit($"ERROR processing Firefox Bookmarks: {ex}");
-                    Interlocked.Increment(ref _counters.ErrorCount);
+                    _logger.Submit($"ERROR processing Firefox Bookmarks: {ex}", LogMessage.Error);
                 }
                 ProcessDirectory(user, _dest, true); // Start recursive call
             } // User Backup Completed (ForEach)
@@ -307,8 +273,7 @@ namespace UserBackup
                 Thread.Sleep(50); // Slow down CPU
             }
             _timer.Stop(); // Stop timer for progress updates
-            sw.Stop(); // End Stopwatch
-            _logger.Close(); // Close Logfile
+            _logger.Close(); // Close Logfile, end Stopwatch
         }
 
         private void ProcessDirectory(DirectoryInfo directory, DirectoryInfo backupDest, bool isRoot = false)
@@ -330,26 +295,17 @@ namespace UserBackup
                         {
                             continue;
                         }
-                        _queue.Enqueue(new BackupFile()
-                        {
-                            Source = file.FullName,
-                            Dest = Path.Combine(backupDest.FullName, file.Name),
-                            Size = file.Length
-                        });
-                        _counters.TotalFiles++;
-                        _counters.TotalSize += (double)file.Length / (double)1000000; // Megabytes
+                        _queue.Enqueue(file.FullName, Path.Combine(backupDest.FullName, file.Name), file.Length);
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing file {file.FullName}\n{ex}");
-                        Interlocked.Increment(ref _counters.ErrorCount);
+                        _logger.Submit($"ERROR processing file {file.FullName}\n{ex}", LogMessage.Error);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR enumerating files in directory {directory.FullName}\n{ex}");
-                Interlocked.Increment(ref _counters.ErrorCount);
+                _logger.Submit($"ERROR enumerating files in directory {directory.FullName}\n{ex}", LogMessage.Error);
             }
 
             try // Get subdirs
@@ -381,15 +337,13 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing subdir {subdirectory.FullName}\n{ex}");
-                        Interlocked.Increment(ref _counters.ErrorCount);
+                        _logger.Submit($"ERROR processing subdir {subdirectory.FullName}\n{ex}", LogMessage.Error);
                     }
                 } // End ForEach subdir
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR enumerating subdirs in directory {directory.FullName}\n{ex}");
-                Interlocked.Increment(ref _counters.ErrorCount);
+                _logger.Submit($"ERROR enumerating subdirs in directory {directory.FullName}\n{ex}", LogMessage.Error);
             }
         }
     }
