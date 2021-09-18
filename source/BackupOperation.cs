@@ -57,12 +57,14 @@ namespace UserBackup
         {
             try
             {
+                int totalMB = (int)(Interlocked.Read(ref _counters.TotalSize) / 1000000);
+                int copiedMB = (int)(Interlocked.Read(ref _counters.CopiedSize) / 1000000);
                 if (!_scanCompleted)
-                    Console.WriteLine($"** SCANNING - {_counters.CopiedFiles} of {_counters.TotalFiles} files copied ({(int)_counters.CopiedSize} of {(int)_counters.TotalSize} MB)");
+                    Console.WriteLine($"** SCANNING - {_counters.CopiedFiles} of {_counters.TotalFiles} files copied ({copiedMB} of {totalMB} MB)");
                 else
                 {
-                    var pctComplete = (int)((_counters.CopiedSize / _counters.TotalSize) * 100);
-                    Console.WriteLine($"** {pctComplete}% COMPLETE - {_counters.CopiedFiles} of {_counters.TotalFiles} files copied ({(int)_counters.CopiedSize} of {(int)_counters.TotalSize} MB)");
+                    int pctComplete = (int)(copiedMB * 100.0 / totalMB + 0.5);
+                    Console.WriteLine($"** {pctComplete}% COMPLETE - {_counters.CopiedFiles} of {_counters.TotalFiles} files copied ({copiedMB} of {totalMB} MB)");
                 }
             }
             catch { }

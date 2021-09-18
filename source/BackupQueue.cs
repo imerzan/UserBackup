@@ -29,10 +29,7 @@ namespace UserBackup
                 Size = size
             });
             Interlocked.Increment(ref _counters.TotalFiles);
-            lock (_counters.TotalSize_lock)
-            {
-                _counters.TotalSize += (double)size / (double)1000000; // Megabytes
-            }
+            Interlocked.Add(ref _counters.TotalSize, size);
         }
 
         public bool TryDequeue(out BackupFile file) // Thread safe

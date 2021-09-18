@@ -49,10 +49,7 @@ namespace UserBackup
                             }
                         }
                         Interlocked.Increment(ref _counters.CopiedFiles);
-                        lock (_counters.CopiedSize_lock) // Lock access to be thread safe
-                        {
-                            _counters.CopiedSize += (double)file.Size / (double)1000000;
-                        }
+                        Interlocked.Add(ref _counters.CopiedSize, file.Size);
                     }
                     catch (Exception ex)
                     {

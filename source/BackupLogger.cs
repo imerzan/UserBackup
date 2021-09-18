@@ -58,7 +58,7 @@ namespace UserBackup
             var output = new StringBuilder();
             output.Append($"** Backup completed to {_dest}\n" +
                 $"Total Files Backed Up: {_counters.CopiedFiles} of {_counters.TotalFiles}\n" +
-                $"Backup Size (MB): {_counters.CopiedSize}\n" +
+                $"Backup Size (MB): {_counters.CopiedSize / 1000000}\n" +
                 $"ERROR Count: {_counters.ErrorCount}\n" +
                 $"Duration: ");
             if (ts.Hours > 0) output.Append($"{ts.Hours} Hours ");
