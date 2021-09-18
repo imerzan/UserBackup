@@ -85,7 +85,7 @@ namespace UserBackup
             catch (Exception ex) // Catastrophic failure, abort backup
             {
                 _timer?.Stop();
-                _logger?.Submit($"***FATAL ERROR*** on backup {_dest}\n{ex}");
+                _logger?.Submit($"***FATAL ERROR*** on backup {_dest}: {ex}");
                 _logger?.Dispose();
                 _queue?.Clear();
                 foreach (var wrk in _workers) wrk?.Stop();
@@ -300,13 +300,13 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing file {file.FullName}\n{ex}", LogMessage.Error);
+                        _logger.Submit($"ERROR processing file {file.FullName}: {ex}", LogMessage.Error);
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR enumerating files in directory {directory.FullName}\n{ex}", LogMessage.Error);
+                _logger.Submit($"ERROR enumerating files in directory {directory.FullName}: {ex}", LogMessage.Error);
             }
 
             try // Get subdirs
@@ -338,13 +338,13 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing subdir {subdirectory.FullName}\n{ex}", LogMessage.Error);
+                        _logger.Submit($"ERROR processing subdir {subdirectory.FullName}: {ex}", LogMessage.Error);
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR enumerating subdirs in directory {directory.FullName}\n{ex}", LogMessage.Error);
+                _logger.Submit($"ERROR enumerating subdirs in directory {directory.FullName}: {ex}", LogMessage.Error);
             }
         }
     }
