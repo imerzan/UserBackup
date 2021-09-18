@@ -22,6 +22,7 @@ namespace UserBackup
 
         public void Open(string dest)
         {
+            _dest = dest;
             string log = Path.Combine(dest, "log.txt");
             lock (_LogFileLock)
             {
