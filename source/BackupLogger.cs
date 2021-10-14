@@ -36,15 +36,18 @@ namespace UserBackup
 
         public void Submit(string entry, LogMessage msgType = LogMessage.Normal)
         {
+            Console.WriteLine(entry);
             try
             {
-                Console.WriteLine(entry);
                 lock (_LogFileLock) // Lock access to Stream to be thread safe
                 {
                     _LogFile?.WriteLine($"{DateTime.Now}: {entry}");
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR writing to Logfile: {ex}");
+            }
             finally
             {
                 if (msgType is LogMessage.Error) Interlocked.Increment(ref _counters.ErrorCount);
@@ -66,16 +69,28 @@ namespace UserBackup
             if (ts.Seconds > 0) output.Append($"{ts.Seconds} Seconds ");
             if (ts.Minutes == 0) output.Append($"{ts.Milliseconds} Milliseconds");
             Submit(output.ToString()); // Log completion
-            Dispose();
+            Dispose(true);
         }
 
-        public void Dispose()
+        // Public implementation of Dispose pattern callable by consumers.
+        private bool _disposed = false;
+        public void Dispose() => Dispose(true);
+
+        // Protected implementation of Dispose pattern.
+        protected virtual void Dispose(bool disposing)
         {
-            lock (_LogFileLock)
+            if (_disposed)
             {
-                _LogFile?.Dispose();
-                _LogFile = null;
+                return;
             }
+
+            if (disposing)
+            {
+                // Dispose managed state (managed objects).
+                lock (_LogFileLock) { _LogFile?.Dispose(); }
+            }
+
+            _disposed = true;
         }
     }
 

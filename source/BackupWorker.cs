@@ -32,22 +32,13 @@ namespace UserBackup
         private void Worker(int t) // Worker Thread, works on Queue
         {
             Console.WriteLine($"Worker Thread {t} is starting.");
-            Span<byte> buffer = stackalloc byte[256000]; // 256kb Stack Allocated Copy buffer
             while (!_signalled)
             {
                 if (_queue.TryDequeue(out var file))
                 {
                     try
                     {
-                        using (var fsIn = new FileStream(file.Source, FileMode.Open, FileAccess.Read))
-                        using (var fsOut = new FileStream(file.Dest, FileMode.Create, FileAccess.Write))
-                        {
-                            int bytesRead;
-                            while ((bytesRead = fsIn.Read(buffer)) > 0) // Read Source File
-                            {
-                                fsOut.Write(buffer.Slice(0, bytesRead)); // Copy to destination
-                            }
-                        }
+                        File.Copy(file.Source, file.Dest); // Use Native Copy API, optimized best for each platform
                         Interlocked.Increment(ref _counters.CopiedFiles);
                         Interlocked.Add(ref _counters.CopiedSize, file.Size);
                     }
