@@ -290,21 +290,17 @@ namespace UserBackup
             if (!backupDest.Exists) throw new IOException($"Unable to create destination directory {backupDest.FullName}");
             try
             {
-                Parallel.ForEach(directory.EnumerateFiles("*", _EnumOptions), file =>
+                foreach (var file in directory.EnumerateFiles("*", _EnumOptions))
                 {
                     try
                     {
-                        if (_platform == OSPlatform.OSX && file.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (ToDo in .NET6)
-                        {
-                            return;
-                        }
                         _queue.Enqueue(file.FullName, Path.Combine(backupDest.FullName, file.Name), file.Length);
                     }
                     catch (Exception ex)
                     {
                         _logger.Submit($"ERROR processing file {file.FullName}: {ex}", LogMessage.Error);
                     }
-                });
+                }
             }
             catch (Exception ex)
             {
@@ -317,10 +313,6 @@ namespace UserBackup
                 {
                     try
                     {
-                        if (_platform == OSPlatform.OSX && subdirectory.Attributes.HasFlag(FileAttributes.Hidden)) // macOS Bug, need to check hidden flag directly, not caught in enumeration (ToDo in .NET6)
-                        {
-                            return;
-                        }
                         if (subdirectory.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase)) // Ignore .App Folders (applications)
                         {
                             return;
