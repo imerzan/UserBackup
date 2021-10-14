@@ -31,25 +31,33 @@ namespace UserBackup
         }
         private void Worker(int t) // Worker Thread, works on Queue
         {
-            Console.WriteLine($"Worker Thread {t} is starting.");
-            while (!_signalled)
+            try
             {
-                if (_queue.TryDequeue(out var file))
+                Console.WriteLine($"Worker Thread {t} is starting.");
+                while (!_signalled)
                 {
-                    try
+                    if (_queue.TryDequeue(out var file))
                     {
-                        File.Copy(file.Source, file.Dest); // Use Native Copy API, optimized best for each platform
-                        Interlocked.Increment(ref _counters.CopiedFiles);
-                        Interlocked.Add(ref _counters.CopiedSize, file.Size);
+                        try
+                        {
+                            File.Copy(file.Source, file.Dest); // Use Native Copy API, optimized best for each platform
+                            Interlocked.Increment(ref _counters.CopiedFiles);
+                            Interlocked.Add(ref _counters.CopiedSize, file.Size);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Submit($"ERROR copying file {file.Source}: {ex}", LogMessage.Error);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.Submit($"ERROR copying file {file.Source}: {ex}", LogMessage.Error);
-                    }
+                    else Thread.Sleep(1); // Slow down CPU
                 }
-                else Thread.Sleep(1); // Slow down CPU
+                Console.WriteLine($"Worker Thread {t} is stopping.");
             }
-            Console.WriteLine($"Worker Thread {t} is stopping.");
+            catch (Exception ex)
+            {
+                _logger.Submit($"***FATAL ERROR*** Worker Thread {t} has terminated unexpectedly: {ex}", LogMessage.Error); // Log error
+                throw; // re-throw exception, will cause program to crash, but backup should be re-started anyways
+            }
         }
 
         public void Stop()

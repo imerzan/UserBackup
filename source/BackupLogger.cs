@@ -6,38 +6,37 @@ using System.Threading;
 
 namespace UserBackup
 {
-    public class BackupLogger : IDisposable
+    public class BackupLogger
     {
         private readonly BackupCounters _counters;
-        private readonly Stopwatch _sw;
         private string _dest;
         private StreamWriter _LogFile;
+        private Stopwatch _sw;
         private readonly object _LogFileLock = new object();
 
         public BackupLogger(BackupCounters counters)
         {
             _counters = counters;
-            _sw = new Stopwatch();
         }
 
         public void OpenLogfile(string dest)
         {
-            if (_disposed) throw new ObjectDisposedException("BackupLogger was disposed!");
-            _dest = dest;
-            string log = Path.Combine(dest, "log.txt");
             lock (_LogFileLock)
             {
+                if (_LogFile is not null) return; // Already opened
+                _dest = dest;
+                string log = Path.Combine(dest, "log.txt");
                 _LogFile = File.AppendText(log);
                 _LogFile.AutoFlush = true;
+                Console.WriteLine($"Opened Logfile at {log}");
             }
-            Console.WriteLine($"Opened Logfile at {log}");
+            _sw = new Stopwatch();
             _sw.Start();
             Submit($"** UserBackup Version {Program.AssemblyVersion}, Starting Backup...");
         }
 
         public void Submit(string entry, LogMessage msgType = LogMessage.Normal)
         {
-            if (_disposed) throw new ObjectDisposedException("BackupLogger was disposed!");
             try
             {
                 Console.WriteLine(entry);
@@ -56,9 +55,8 @@ namespace UserBackup
             }
         }
 
-        public void Completed()
+        public void LogCompletion()
         {
-            if (_disposed) throw new ObjectDisposedException("BackupLogger was disposed!");
             _sw.Stop();
             TimeSpan ts = _sw.Elapsed;
             var output = new StringBuilder();
@@ -74,30 +72,15 @@ namespace UserBackup
             Submit(output.ToString()); // Log completion
         }
 
-        // Public implementation of Dispose pattern callable by consumers.
-        private bool _disposed = false;
-        public void Dispose() => Dispose(true);
-
-        // Protected implementation of Dispose pattern.
-        protected virtual void Dispose(bool disposing)
+        public void CloseLogfile()
         {
-            if (_disposed)
+            lock (_LogFileLock)
             {
-                return;
+                if (_LogFile is null) return; // Already closed
+                _LogFile.Dispose(); // Dispose Stream
+                _LogFile = null; // Remove object reference
             }
-
-            if (disposing)
-            {
-                // Dispose managed state (managed objects).
-                lock (_LogFileLock)
-                {
-                    _LogFile?.Dispose();
-                    _LogFile = null;
-                }
-                _sw?.Stop();
-            }
-
-            _disposed = true;
+            Console.WriteLine("Logfile closed.");
         }
     }
 

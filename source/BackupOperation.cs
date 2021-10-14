@@ -88,7 +88,7 @@ namespace UserBackup
             {
                 _timer?.Stop();
                 _logger?.Submit($"***FATAL ERROR*** on backup {_dest}: {ex}");
-                _logger?.Dispose();
+                _logger?.CloseLogfile();
                 _queue?.Clear();
                 foreach (var wrk in _workers) wrk?.Stop();
                 Console.WriteLine("Press any key to exit.");
@@ -276,8 +276,8 @@ namespace UserBackup
                 Thread.Sleep(50); // Slow down CPU
             }
             _timer.Stop(); // Stop timer for progress updates
-            _logger.Completed(); // Log completion of backup operation
-            _logger.Dispose(); // Close logfile
+            _logger.LogCompletion(); // Log completion of backup operation
+            _logger.CloseLogfile(); // Close logfile
         }
 
         private void ProcessDirectory(DirectoryInfo directory, DirectoryInfo backupDest, bool isRoot = false)
