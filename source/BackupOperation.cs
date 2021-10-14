@@ -170,7 +170,7 @@ namespace UserBackup
 
         private void BackupProfile()
         {
-            _logger.Open(_dest.FullName); // Open Logfile, begin stopwatch
+            _logger.OpenLogfile(_dest.FullName); // Open Logfile, begin stopwatch
             for (int i = 0; i < _workers.Length; i++) // Start Workers
             {
                 _workers[i] = new BackupWorker(_counters, _queue, _logger, i+1);
@@ -276,7 +276,8 @@ namespace UserBackup
                 Thread.Sleep(50); // Slow down CPU
             }
             _timer.Stop(); // Stop timer for progress updates
-            _logger.Close(); // Close Logfile, end Stopwatch
+            _logger.Completed(); // Log completion of backup operation
+            _logger.Dispose(); // Close logfile
         }
 
         private void ProcessDirectory(DirectoryInfo directory, DirectoryInfo backupDest, bool isRoot = false)

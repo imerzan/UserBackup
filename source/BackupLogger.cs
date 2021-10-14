@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace UserBackup
 {
-    public class BackupLogger
+    public class BackupLogger : IDisposable
     {
         private readonly BackupCounters _counters;
         private readonly Stopwatch _sw;
@@ -20,28 +20,30 @@ namespace UserBackup
             _sw = new Stopwatch();
         }
 
-        public void Open(string dest)
+        public void OpenLogfile(string dest)
         {
+            if (_disposed) throw new ObjectDisposedException("BackupLogger was disposed!");
             _dest = dest;
             string log = Path.Combine(dest, "log.txt");
             lock (_LogFileLock)
             {
                 _LogFile = File.AppendText(log);
                 _LogFile.AutoFlush = true;
-                Console.WriteLine($"Opened Logfile at {log}");
             }
+            Console.WriteLine($"Opened Logfile at {log}");
             _sw.Start();
             Submit($"** UserBackup Version {Program.AssemblyVersion}, Starting Backup...");
         }
 
         public void Submit(string entry, LogMessage msgType = LogMessage.Normal)
         {
-            Console.WriteLine(entry);
+            if (_disposed) throw new ObjectDisposedException("BackupLogger was disposed!");
             try
             {
+                Console.WriteLine(entry);
                 lock (_LogFileLock) // Lock access to Stream to be thread safe
                 {
-                    _LogFile?.WriteLine($"{DateTime.Now}: {entry}");
+                    _LogFile?.WriteLine($"{DateTime.Now}: {entry}"); // Only write if Logfile has been already opened
                 }
             }
             catch (Exception ex)
@@ -54,8 +56,9 @@ namespace UserBackup
             }
         }
 
-        public void Close()
+        public void Completed()
         {
+            if (_disposed) throw new ObjectDisposedException("BackupLogger was disposed!");
             _sw.Stop();
             TimeSpan ts = _sw.Elapsed;
             var output = new StringBuilder();
@@ -69,7 +72,6 @@ namespace UserBackup
             if (ts.Seconds > 0) output.Append($"{ts.Seconds} Seconds ");
             if (ts.Minutes == 0) output.Append($"{ts.Milliseconds} Milliseconds");
             Submit(output.ToString()); // Log completion
-            Dispose(true);
         }
 
         // Public implementation of Dispose pattern callable by consumers.
@@ -87,7 +89,12 @@ namespace UserBackup
             if (disposing)
             {
                 // Dispose managed state (managed objects).
-                lock (_LogFileLock) { _LogFile?.Dispose(); }
+                lock (_LogFileLock)
+                {
+                    _LogFile?.Dispose();
+                    _LogFile = null;
+                }
+                _sw?.Stop();
             }
 
             _disposed = true;
