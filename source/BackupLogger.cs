@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace UserBackup
 {
-    public class BackupLogger
+    public class BackupLogger : IDisposable
     {
         private readonly BackupCounters _counters;
         private string _dest;
@@ -19,30 +19,30 @@ namespace UserBackup
             _counters = counters;
         }
 
-        public void OpenLogfile(string dest)
+        public void Start(string dest)
         {
+            if (_disposed) return;
+            _dest = dest;
+            string log = Path.Combine(dest, "log.txt");
             lock (_LogFileLock)
             {
-                if (_LogFile is not null) return; // Already opened
-                _dest = dest;
-                string log = Path.Combine(dest, "log.txt");
                 _LogFile = File.AppendText(log);
                 _LogFile.AutoFlush = true;
-                Console.WriteLine($"Opened Logfile at {log}");
             }
+            Console.WriteLine($"Opened Logfile at {log}");
             _sw = new Stopwatch();
             _sw.Start();
-            Submit($"** UserBackup Version {Program.AssemblyVersion}, Starting Backup...");
+            Write($"** UserBackup Version {Program.AssemblyVersion}, Starting Backup...");
         }
 
-        public void Submit(string entry, LogMessage msgType = LogMessage.Normal)
+        public void Write(string entry, LogMessage msgType = LogMessage.Normal)
         {
             try
             {
                 Console.WriteLine(entry);
                 lock (_LogFileLock) // Lock access to Stream to be thread safe
                 {
-                    _LogFile?.WriteLine($"{DateTime.Now}: {entry}"); // Only write if Logfile has been already opened
+                    _LogFile?.WriteLine($"{DateTime.Now}: {entry}"); // Only write if StreamWriter is *not* null
                 }
             }
             catch (Exception ex)
@@ -55,8 +55,9 @@ namespace UserBackup
             }
         }
 
-        public void LogCompletion()
+        public void Stop()
         {
+            if (_disposed) return;
             _sw.Stop();
             TimeSpan ts = _sw.Elapsed;
             var output = new StringBuilder();
@@ -69,18 +70,33 @@ namespace UserBackup
             if (ts.Minutes > 0) output.Append($"{ts.Minutes} Minutes ");
             if (ts.Seconds > 0) output.Append($"{ts.Seconds} Seconds ");
             if (ts.Minutes == 0) output.Append($"{ts.Milliseconds} Milliseconds");
-            Submit(output.ToString()); // Log completion
+            Write(output.ToString()); // Log completion
+            Dispose(true);
         }
 
-        public void CloseLogfile()
+        // Public implementation of Dispose pattern callable by consumers.
+        private bool _disposed = false;
+        public void Dispose() => Dispose(true);
+
+        // Protected implementation of Dispose pattern.
+        protected virtual void Dispose(bool disposing)
         {
-            lock (_LogFileLock)
+            if (_disposed)
             {
-                if (_LogFile is null) return; // Already closed
-                _LogFile.Dispose(); // Dispose Stream
-                _LogFile = null; // Remove object reference
+                return;
             }
-            Console.WriteLine("Logfile closed.");
+
+            if (disposing)
+            {
+                // Dispose managed state (managed objects).
+                lock (_LogFileLock)
+                {
+                    _LogFile?.Dispose(); // Dispose Stream
+                    _LogFile = null; // Remove object reference
+                }
+            }
+
+            _disposed = true;
         }
     }
 

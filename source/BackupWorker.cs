@@ -46,7 +46,7 @@ namespace UserBackup
                         }
                         catch (Exception ex)
                         {
-                            _logger.Submit($"ERROR copying file {file.Source}: {ex}", LogMessage.Error);
+                            _logger.Write($"ERROR copying file {file.Source}: {ex}", LogMessage.Error);
                         }
                     }
                     else Thread.Sleep(1); // Slow down CPU
@@ -55,7 +55,7 @@ namespace UserBackup
             }
             catch (Exception ex)
             {
-                _logger.Submit($"***FATAL ERROR*** Worker Thread {t} has terminated unexpectedly: {ex}", LogMessage.Error); // Log error
+                _logger.Write($"***FATAL ERROR*** Worker Thread {t} has terminated unexpectedly: {ex}", LogMessage.Error); // Log error
                 throw; // re-throw exception, will cause program to crash, but backup should be re-started anyways
             }
         }

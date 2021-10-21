@@ -87,8 +87,8 @@ namespace UserBackup
             catch (Exception ex) // Catastrophic failure, abort backup
             {
                 _timer?.Stop();
-                _logger?.Submit($"***FATAL ERROR*** on backup {_dest}: {ex}");
-                _logger?.CloseLogfile();
+                _logger?.Write($"***FATAL ERROR*** on backup {_dest}: {ex}");
+                _logger?.Dispose();
                 _queue?.Clear();
                 foreach (var wrk in _workers) wrk?.Stop();
                 Console.WriteLine("Press any key to exit.");
@@ -170,7 +170,7 @@ namespace UserBackup
 
         private void BackupProfile()
         {
-            _logger.OpenLogfile(_dest.FullName); // Open Logfile, begin stopwatch
+            _logger.Start(_dest.FullName); // Open Logfile, begin stopwatch
             for (int i = 0; i < _workers.Length; i++) // Start Workers
             {
                 _workers[i] = new BackupWorker(_counters, _queue, _logger, i+1);
@@ -178,7 +178,7 @@ namespace UserBackup
             _timer.Start(); // Start timer for progress updates
             foreach (var user in _users) // Iterate *all* selected users
             {
-                _logger.Submit($"** Scanning User '{user.Name}'");
+                _logger.Write($"** Scanning User '{user.Name}'");
                 if (_platform == OSPlatform.OSX) // Mac Only
                 {
                     try // Safari bookmarks
@@ -192,7 +192,7 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing Safari Bookmarks: {ex}", LogMessage.Error);
+                        _logger.Write($"ERROR processing Safari Bookmarks: {ex}", LogMessage.Error);
                     }
                 }
                 if (_platform == OSPlatform.Windows) // Windows Only
@@ -208,7 +208,7 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing Microsoft Edge Bookmarks: {ex}", LogMessage.Error);
+                        _logger.Write($"ERROR processing Microsoft Edge Bookmarks: {ex}", LogMessage.Error);
                     }
                 }
                 try // Chrome Bookmarks
@@ -234,7 +234,7 @@ namespace UserBackup
                 }
                 catch (Exception ex)
                 {
-                    _logger.Submit($"ERROR processing Chrome Bookmarks: {ex}", LogMessage.Error);
+                    _logger.Write($"ERROR processing Chrome Bookmarks: {ex}", LogMessage.Error);
                 }
                 try // Firefox Bookmarks
                 {
@@ -259,14 +259,14 @@ namespace UserBackup
                 }
                 catch (Exception ex)
                 {
-                    _logger.Submit($"ERROR processing Firefox Bookmarks: {ex}", LogMessage.Error);
+                    _logger.Write($"ERROR processing Firefox Bookmarks: {ex}", LogMessage.Error);
                 }
                 ProcessDirectory(user, _dest, true); // Start recursive call
             } // User Backup Completed (ForEach)
-            _logger.Submit("** Backup scan completed! Waiting for queue to be completed by Worker Threads...");
+            _logger.Write("** Backup scan completed! Waiting for queue to be completed by Worker Threads...");
             _scanCompleted = true; // Set 'Scan Completed' flag
             while (!_queue.IsEmpty) Thread.Sleep(50); // Slow down CPU
-            _logger.Submit("** Queue has been completed! Signalling worker threads to wrap up once finished...");
+            _logger.Write("** Queue has been completed! Signalling worker threads to wrap up once finished...");
             foreach (var wrk in _workers) wrk.Stop();
             while (true) // Wait for all worker threads to complete
             {
@@ -276,15 +276,14 @@ namespace UserBackup
                 Thread.Sleep(50); // Slow down CPU
             }
             _timer.Stop(); // Stop timer for progress updates
-            _logger.LogCompletion(); // Log completion of backup operation
-            _logger.CloseLogfile(); // Close logfile
+            _logger.Stop(); // Log completion of backup operation
         }
 
         private void ProcessDirectory(DirectoryInfo directory, DirectoryInfo backupDest, bool isRoot = false)
         {
             if (directory.FullName.Contains(_dest.FullName, StringComparison.OrdinalIgnoreCase)) // Loop Protection
             {
-                _logger.Submit($"WARNING - Backup loop detected! Skipping folder {directory.FullName}");
+                _logger.Write($"WARNING - Backup loop detected! Skipping folder {directory.FullName}");
                 return;
             }
             backupDest = backupDest.CreateSubdirectory(directory.Name); // Make sure destination is created before Enqueuing
@@ -299,13 +298,13 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing file {file.FullName}: {ex}", LogMessage.Error);
+                        _logger.Write($"ERROR processing file {file.FullName}: {ex}", LogMessage.Error);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR enumerating files in directory {directory.FullName}: {ex}", LogMessage.Error);
+                _logger.Write($"ERROR enumerating files in directory {directory.FullName}: {ex}", LogMessage.Error);
             }
 
             try // Get subdirs
@@ -333,13 +332,13 @@ namespace UserBackup
                     }
                     catch (Exception ex)
                     {
-                        _logger.Submit($"ERROR processing subdir {subdirectory.FullName}: {ex}", LogMessage.Error);
+                        _logger.Write($"ERROR processing subdir {subdirectory.FullName}: {ex}", LogMessage.Error);
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.Submit($"ERROR enumerating subdirs in directory {directory.FullName}: {ex}", LogMessage.Error);
+                _logger.Write($"ERROR enumerating subdirs in directory {directory.FullName}: {ex}", LogMessage.Error);
             }
         }
     }
