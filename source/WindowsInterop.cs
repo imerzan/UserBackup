@@ -20,9 +20,9 @@ namespace UserBackup
         public static bool IsDriveLocked(string driveParam) // Requires Admin
         {
             driveParam = driveParam.TrimEnd('\\'); // Remove trailing slash
-            using var wmi = new ManagementObjectSearcher(@"root\cimv2\Security\MicrosoftVolumeEncryption", "SELECT * FROM Win32_EncryptableVolume").Get();
-            var col = wmi.Cast<ManagementObject>();
-            using var drive = col.FirstOrDefault(x => x.GetPropertyValue("DriveLetter").ToString().Equals(driveParam, StringComparison.OrdinalIgnoreCase));
+            using var wmi = new ManagementObjectSearcher(@"root\cimv2\Security\MicrosoftVolumeEncryption", "SELECT * FROM Win32_EncryptableVolume");
+            using var drive = wmi.Get().OfType<ManagementObject>()
+                .FirstOrDefault(x => x.GetPropertyValue("DriveLetter").ToString().Equals(driveParam, StringComparison.OrdinalIgnoreCase));
             if (drive is null) return false;
             else
             {
@@ -40,9 +40,9 @@ namespace UserBackup
         public static void UnlockDrive(string driveParam) // Requires Admin
         {
             driveParam = driveParam.TrimEnd('\\'); // Remove trailing slash
-            using var wmi = new ManagementObjectSearcher(@"root\cimv2\Security\MicrosoftVolumeEncryption", "SELECT * FROM Win32_EncryptableVolume").Get();
-            var col = wmi.Cast<ManagementObject>();
-            using var drive = col.FirstOrDefault(x => x.GetPropertyValue("DriveLetter").ToString().Equals(driveParam, StringComparison.OrdinalIgnoreCase));
+            using var wmi = new ManagementObjectSearcher(@"root\cimv2\Security\MicrosoftVolumeEncryption", "SELECT * FROM Win32_EncryptableVolume");
+            using var drive = wmi.Get().OfType<ManagementObject>()
+                .FirstOrDefault(x => x.GetPropertyValue("DriveLetter").ToString().Equals(driveParam, StringComparison.OrdinalIgnoreCase));
             if (drive is null) throw new NullReferenceException($"Unable to parse WMI object of drive {driveParam}");
             else
             {
