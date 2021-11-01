@@ -81,7 +81,7 @@ namespace UserBackup
                 PromptSource();
                 PromptDest();
                 PromptName();
-                BackupProfile();
+                BackupSelectedProfiles();
                 return 0;
             }
             catch (Exception ex) // Catastrophic failure, abort backup
@@ -168,7 +168,7 @@ namespace UserBackup
             if (!_dest.Exists) throw new IOException($"Unable to create destination folder {_dest}");
         }
 
-        private void BackupProfile()
+        private void BackupSelectedProfiles()
         {
             _logger.Start(_dest.FullName); // Open Logfile, begin stopwatch
             for (int i = 0; i < _workers.Length; i++) // Start Workers
@@ -277,6 +277,7 @@ namespace UserBackup
             }
             _timer.Stop(); // Stop timer for progress updates
             _logger.Stop(); // Log completion of backup operation
+            _logger.Dispose(); // Dispose of logger (IDisposable)
         }
 
         private void ProcessDirectory(DirectoryInfo directory, DirectoryInfo backupDest, bool isRoot = false)

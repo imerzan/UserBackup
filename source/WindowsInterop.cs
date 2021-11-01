@@ -26,8 +26,8 @@ namespace UserBackup
             if (drive is null) return false;
             else
             {
-                using var status = drive.InvokeMethod("GetLockStatus", null, null);
-                switch (Convert.ToUInt32(status["LockStatus"]))
+                using var outParams = drive.InvokeMethod("GetLockStatus", null, null);
+                switch (Convert.ToUInt32(outParams["LockStatus"]))
                 {
                     case 1:
                         return true; // Locked,Encrypted
@@ -49,9 +49,9 @@ namespace UserBackup
                 { // scope 1
                     using var inParams = drive.GetMethodParameters("GetKeyProtectors");
                     inParams["KeyProtectorType"] = (uint)3; // Numerical password
-                    using var protectors = drive.InvokeMethod("GetKeyProtectors", inParams, null);
+                    using var outParams = drive.InvokeMethod("GetKeyProtectors", inParams, null);
                     Console.WriteLine($"\nKey Identifiers for {driveParam}");
-                    foreach (var protector in (string[])protectors["VolumeKeyProtectorID"])
+                    foreach (var protector in (string[])outParams["VolumeKeyProtectorID"])
                     {
                         Console.WriteLine(protector);
                     }
@@ -61,8 +61,8 @@ namespace UserBackup
                     Console.Write("BL Recovery Key>> ");
                     using var inParams = drive.GetMethodParameters("UnlockWithNumericalPassword");
                     inParams["NumericalPassword"] = Console.ReadLine().Trim();
-                    using var unlock = drive.InvokeMethod("UnlockWithNumericalPassword", inParams, null);
-                    switch (Convert.ToUInt32(unlock["returnValue"]))
+                    using var outParams = drive.InvokeMethod("UnlockWithNumericalPassword", inParams, null);
+                    switch (Convert.ToUInt32(outParams["returnValue"]))
                     {
                         case 0x0: // S_OK
                             Console.WriteLine($"Drive {driveParam} unlocked successfully!");
@@ -78,7 +78,7 @@ namespace UserBackup
                         case 0x80310035: // FVE_E_INVALID_PASSWORD_FORMAT
                             throw new Exception("FVE_E_INVALID_PASSWORD_FORMAT: The NumericalPassword parameter does not have a valid format.");
                         default:
-                            throw new Exception($"Unknown error unlocking drive {driveParam}");
+                            throw new Exception($"Unknown Error unlocking drive!");
                     }
                 }
             }

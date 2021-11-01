@@ -11,26 +11,24 @@ namespace UserBackup
         private readonly BackupCounters _counters;
         private string _dest;
         private StreamWriter _LogFile;
-        private Stopwatch _sw;
+        private readonly Stopwatch _sw;
         private readonly object _LogFileLock = new object();
 
         public BackupLogger(BackupCounters counters)
         {
             _counters = counters;
+            _sw = new Stopwatch();
         }
 
         public void Start(string dest)
         {
-            if (_disposed) return;
+            if (_disposed || _sw.IsRunning) return;
             _dest = dest;
-            string log = Path.Combine(dest, "log.txt");
             lock (_LogFileLock)
             {
-                _LogFile = File.AppendText(log);
+                _LogFile = File.AppendText(Path.Combine(dest, "log.txt"));
                 _LogFile.AutoFlush = true;
             }
-            Console.WriteLine($"Opened Logfile at {log}");
-            _sw = new Stopwatch();
             _sw.Start();
             Write($"** UserBackup Version {Program.AssemblyVersion}, Starting Backup...");
         }
@@ -42,7 +40,7 @@ namespace UserBackup
                 Console.WriteLine(entry);
                 lock (_LogFileLock) // Lock access to Stream to be thread safe
                 {
-                    _LogFile?.WriteLine($"{DateTime.Now}: {entry}"); // Only write if StreamWriter is *not* null
+                    _LogFile?.WriteLine($"{DateTime.Now}: {entry}"); // Only write if StreamWriter is *not* null, method can continue after disposal (log to console only)
                 }
             }
             catch (Exception ex)
@@ -57,7 +55,7 @@ namespace UserBackup
 
         public void Stop()
         {
-            if (_disposed) return;
+            if (_disposed || !_sw.IsRunning) return;
             _sw.Stop();
             TimeSpan ts = _sw.Elapsed;
             var output = new StringBuilder();
@@ -71,7 +69,6 @@ namespace UserBackup
             if (ts.Seconds > 0) output.Append($"{ts.Seconds} Seconds ");
             if (ts.Minutes == 0) output.Append($"{ts.Milliseconds} Milliseconds");
             Write(output.ToString()); // Log completion
-            Dispose(true);
         }
 
         // Public implementation of Dispose pattern callable by consumers.
