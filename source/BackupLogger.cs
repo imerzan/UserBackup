@@ -22,7 +22,7 @@ namespace UserBackup
 
         public void Start(string dest)
         {
-            if (_disposed || _sw.IsRunning) return;
+            if (_disposed || _sw.IsRunning) return; // Prevent multiple Start()
             _dest = dest;
             lock (_LogFileLock)
             {
@@ -35,9 +35,10 @@ namespace UserBackup
 
         public void Write(string entry, LogMessage msgType = LogMessage.Normal)
         {
-            try
+            Console.WriteLine(entry); // Log to console
+            if (msgType is LogMessage.Error) Interlocked.Increment(ref _counters.ErrorCount); // Increment error counter
+            try // Write to Logfile (if still open)
             {
-                Console.WriteLine(entry);
                 lock (_LogFileLock) // Lock access to Stream to be thread safe
                 {
                     _LogFile?.WriteLine($"{DateTime.Now}: {entry}"); // Only write if StreamWriter is *not* null, method can continue after disposal (log to console only)
@@ -47,28 +48,31 @@ namespace UserBackup
             {
                 Console.WriteLine($"ERROR writing to Logfile: {ex}");
             }
-            finally
-            {
-                if (msgType is LogMessage.Error) Interlocked.Increment(ref _counters.ErrorCount);
-            }
         }
 
+        /// <summary>
+        /// Calls Dispose() automatically.
+        /// </summary>
         public void Stop()
         {
-            if (_disposed || !_sw.IsRunning) return;
-            _sw.Stop();
-            TimeSpan ts = _sw.Elapsed;
-            var output = new StringBuilder();
-            output.Append($"** Backup completed to {_dest}\n" +
-                $"Total Files Backed Up: {_counters.CopiedFiles} of {_counters.TotalFiles}\n" +
-                $"Backup Size (MB): {_counters.CopiedSize / 1000000}\n" +
-                $"ERROR Count: {_counters.ErrorCount}\n" +
-                $"Duration: ");
-            if (ts.Hours > 0) output.Append($"{ts.Hours} Hours ");
-            if (ts.Minutes > 0) output.Append($"{ts.Minutes} Minutes ");
-            if (ts.Seconds > 0) output.Append($"{ts.Seconds} Seconds ");
-            if (ts.Minutes == 0) output.Append($"{ts.Milliseconds} Milliseconds");
-            Write(output.ToString()); // Log completion
+            try
+            {
+                if (_disposed) return;
+                _sw.Stop();
+                TimeSpan ts = _sw.Elapsed;
+                var output = new StringBuilder();
+                output.Append($"** Backup completed to {_dest}\n" +
+                    $"Total Files Backed Up: {_counters.CopiedFiles} of {_counters.TotalFiles}\n" +
+                    $"Backup Size (MB): {_counters.CopiedSize / 1000000}\n" +
+                    $"ERROR Count: {_counters.ErrorCount}\n" +
+                    $"Duration: ");
+                if (ts.Hours > 0) output.Append($"{ts.Hours} Hours ");
+                if (ts.Minutes > 0) output.Append($"{ts.Minutes} Minutes ");
+                if (ts.Seconds > 0) output.Append($"{ts.Seconds} Seconds ");
+                if (ts.Minutes == 0) output.Append($"{ts.Milliseconds} Milliseconds");
+                Write(output.ToString()); // Log completion
+            }
+            finally { Dispose(true); }
         }
 
         // Public implementation of Dispose pattern callable by consumers.

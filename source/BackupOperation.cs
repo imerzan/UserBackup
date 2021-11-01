@@ -276,8 +276,7 @@ namespace UserBackup
                 Thread.Sleep(50); // Slow down CPU
             }
             _timer.Stop(); // Stop timer for progress updates
-            _logger.Stop(); // Log completion of backup operation
-            _logger.Dispose(); // Dispose of logger (IDisposable)
+            _logger.Stop(); // Log completion of backup operation, Dispose
         }
 
         private void ProcessDirectory(DirectoryInfo directory, DirectoryInfo backupDest, bool isRoot = false)
