@@ -149,7 +149,11 @@ namespace UserBackup
                 Console.Write("\nEnter Dest Path (blank=default)>> ");
                 string dest = Console.ReadLine().Trim().TrimEnd(Path.DirectorySeparatorChar);
                 if (dest == String.Empty) _dest = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "Backups"));
-                else _dest = new DirectoryInfo(dest);
+                else
+                {
+                    if (_platform == OSPlatform.Windows && dest.EndsWith(':')) dest += Path.DirectorySeparatorChar; // Fix bug when using C:\ ,etc. as destination
+                    _dest = new DirectoryInfo(dest);
+                }
             }
             _dest.Create(); // Attempt to create dest folder
             if (!_dest.Exists) throw new IOException($"Unable to create destination folder {_dest}");

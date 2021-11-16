@@ -57,7 +57,7 @@ namespace UserBackup
         {
             try
             {
-                if (_disposed) return;
+                if (_disposed || !_sw.IsRunning) return;
                 _sw.Stop();
                 TimeSpan ts = _sw.Elapsed;
                 var output = new StringBuilder();
