@@ -3,7 +3,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <AssemblyName>UserBackup</AssemblyName>
+    <AssemblyName>userbackup</AssemblyName>
+    <AssemblyVersion>1.3.2111.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
